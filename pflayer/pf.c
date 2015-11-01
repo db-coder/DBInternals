@@ -24,6 +24,8 @@ sense that it's <0 or >= # of pages in the file */
 #define PFinvalidPagenum(fd,pagenum) ((pagenum)<0 || (pagenum) >= \
 				PFftab[fd].hdr.numpages)
 
+#define MAX_INT 2147483647
+
 extern char *malloc();
 
 /****************** Internal Support Functions *****************************/
@@ -745,4 +747,262 @@ RETURN VALUE: none
 		perror(" ");
 	else	fprintf(stderr,"\n");
 
+}
+
+
+PF_MergeSort(fname)
+char* fname;	/* filename for mergesort */
+/****************************************************************************
+SPECIFICATIONS:
+	Takes a file name as input and does merge sort on it.
+
+AUTHOR: Aashish, Anand and Dibyendu
+
+RETURN VALUE: none
+
+*****************************************************************************/
+{
+	int i;
+	int fd,fdw,pagenum,runsize,wpagenum;
+	int *buf;
+	int error;
+	int top[PF_MAX_BUFS-1];
+	int page[PF_MAX_BUFS-1];
+	int min_elem, curr_elem, min_i;
+	int stop_i = 0;
+	int swap = TRUE;
+	int filesize;
+	runsize = 1;
+
+
+	// instead of setting this as -1, use get first page.
+	pagenum = -1;
+	wpagenum = -1;
+
+	// Create another file with as many pages as the current one. It will be used as a buffer to store the partially sorted data.
+	if ((error=PF_CreateFile("temp"))!= PFE_OK){
+		PF_PrintError("file1");
+		exit(1);
+	}
+	if ((fd=PF_OpenFile(fname))<0){
+		PF_PrintError("open file");
+		exit(1);
+	}
+	
+	if ((fdw=PF_OpenFile("temp"))<0){
+		PF_PrintError("open file");
+		exit(1);
+	}
+	// change this to load multiple pages and write multiple pages at once.
+	while ((error=PF_GetNextPage(fd,&pagenum,&buf))== PFE_OK){
+		int x = *buf;
+		if ((error=PF_AllocPage(fdw,&wpagenum,&buf))!= PFE_OK){
+			PF_PrintError("The End1\n");
+			exit(1);
+		}
+		*((int *)buf) = x;
+		if ((error=PF_UnfixPage(fdw,wpagenum,TRUE))!= PFE_OK){
+			PF_PrintError("unfix buffer\n");
+			exit(1);
+		}
+		if ((error=PF_UnfixPage(fd,pagenum,FALSE))!= PFE_OK){
+			PF_PrintError("unfix buffer\n");
+			exit(1);
+		}		
+	}
+	if ((error=PF_CloseFile(fd))!= PFE_OK){
+		PF_PrintError("close file");
+		exit(1);
+	}
+	if ((error=PF_DestroyFile(fname))!= PFE_OK){
+		PF_PrintError("destroy fname");
+		exit(1);
+	}
+	if ((error=PF_CreateFile(fname))!= PFE_OK){
+		PF_PrintError("file1");
+		exit(1);
+	}
+	if ((fd=PF_OpenFile(fname))<0){
+		PF_PrintError("open file");
+		exit(1);
+	}
+	pagenum = -1;
+	wpagenum = -1;
+	while ((error=PF_GetNextPage(fdw,&wpagenum,&buf))== PFE_OK){
+		int x = *buf;
+		if ((error=PF_AllocPage(fd,&pagenum,&buf))!= PFE_OK){
+			PF_PrintError("Error Allocating Same page\n");
+			exit(1);
+		}
+		*((int *)buf) = x;
+		if ((error=PF_UnfixPage(fdw,wpagenum,FALSE))!= PFE_OK){
+			PF_PrintError("unfix buffer\n");
+			exit(1);
+		}	
+		if ((error=PF_UnfixPage(fd,pagenum,TRUE))!= PFE_OK){
+			PF_PrintError("unfix buffer\n");
+			exit(1);
+		}		
+	}	
+	filesize = pagenum + 1;
+
+	if ((error=PF_CloseFile(fd))!= PFE_OK){
+		PF_PrintError("close file");
+		exit(1);
+	}
+	if ((error=PF_CloseFile(fdw))!= PFE_OK){
+		PF_PrintError("close file");
+		exit(1);
+	}
+	// loop to create runs and merge them
+	while(filesize > runsize){
+		// printf("Read before a loop\n");
+		// readfile(fname);
+		// readfile("temp");
+		// // Keep swapping between the original file and the temp file, to store the sorted data in that run.
+		if(swap){
+			if ((fd=PF_OpenFile(fname))<0){
+				PF_PrintError("open file");
+				exit(1);
+			}
+			
+			if ((fdw=PF_OpenFile("temp"))<0){
+				PF_PrintError("open file");
+				exit(1);
+			}
+		}
+		else{
+			if ((fd=PF_OpenFile("temp"))<0){
+				PF_PrintError("open file");
+				exit(1);
+			}
+			
+			if ((fdw=PF_OpenFile(fname))<0){
+				PF_PrintError("open file");
+				exit(1);
+			}
+		}
+
+		pagenum = 0;
+		wpagenum = -1;
+		if(swap) swap = FALSE;
+		else swap = TRUE;
+
+		while (TRUE){
+			stop_i = PF_MAX_BUFS + 1;
+			for (i=0; i < PF_MAX_BUFS-1; i++){
+				page[i] = runsize;
+				top[i] = pagenum;
+				if(pagenum >= filesize){
+					stop_i = i - 1;
+					if(i != 0) page[i-1] = filesize - top[i-1];
+					break;
+				}
+				pagenum += runsize;
+				// printf("%d %d\n",i , top[i]);
+			}
+			if(stop_i == -1){
+				// printf("stopped because of no more data");
+				break;
+			}
+			// printf("Runsize : %d\n",runsize);
+			int iters = (stop_i)*runsize + page[stop_i];
+			// printf("Iters, stop_i : %d %d\n",iters,stop_i);
+			if(iters > (PF_MAX_BUFS-1)*runsize) iters = (PF_MAX_BUFS-1)*runsize;
+			// printf("Iters, pageval : %d %d\n",iters,page[2]);
+			int j;
+			for(j = 0; j < iters; j++){
+				min_elem = MAX_INT;
+				min_i = -1;
+				int runs = PF_MAX_BUFS - 1; // one is used for write
+				if(stop_i < runs) runs = stop_i + 1;
+				for (i=0; i < runs; i++){
+					if(page[i] == 0) continue;
+					// printf("%d\n",top[i]);
+					if ((error=PF_GetThisPage(fd,top[i],&buf))!= PFE_OK){
+						PF_PrintError("The End3\n");
+						exit(1);
+					}
+					curr_elem = *buf;
+					if(curr_elem < min_elem){
+						min_i = i;
+						min_elem = curr_elem;
+					}
+					if ((error=PF_UnfixPage(fd,top[i],FALSE))!= PFE_OK){
+						PF_PrintError("unfix buffer\n");
+						exit(1);
+					}
+				}
+
+				if ((error=PF_GetNextPage(fdw,&wpagenum,&buf))!= PFE_OK){
+					PF_PrintError("first buffer\n");
+					exit(1);
+				}
+				*((int *)buf) = min_elem;
+				page[min_i] -= 1;
+				top[min_i] += 1;
+				if ((error=PF_UnfixPage(fdw,wpagenum,TRUE))!= PFE_OK){
+					// printf("%d\n",wpagenum);	
+					PF_PrintError("unfix buffer\n");
+					exit(1);
+				}
+			}
+		}
+		runsize *= (PF_MAX_BUFS-1);
+		if ((error=PF_CloseFile(fd))!= PFE_OK){
+			PF_PrintError("close file");
+			exit(1);
+		}
+		if ((error=PF_CloseFile(fdw))!= PFE_OK){
+			PF_PrintError("close file");
+			exit(1);
+		}
+
+	}
+	// if swap is false, write back to fname, else it is already there.
+	if(swap == FALSE){
+		pagenum = -1;
+		wpagenum = -1;
+		int tempbuf;
+
+		if ((fd=PF_OpenFile(fname))<0){
+			PF_PrintError("open file");
+			exit(1);
+		}
+		
+		if ((fdw=PF_OpenFile("temp"))<0){
+			PF_PrintError("open file");
+			exit(1);
+		}
+		// read all into buffer and write instead of one by one;
+		while ((error=PF_GetNextPage(fdw,&wpagenum,&buf))== PFE_OK){
+			tempbuf = *buf;
+			if ((error=PF_GetNextPage(fd,&pagenum,&buf))!= PFE_OK){
+				PF_PrintError("The End4\n");
+				exit(1);
+			}
+			*((int *)buf) = tempbuf;
+			if ((error=PF_UnfixPage(fd,pagenum,TRUE))!= PFE_OK){
+				PF_PrintError("unfix");
+				exit(1);
+			}
+			if ((error=PF_UnfixPage(fdw,wpagenum,FALSE))!= PFE_OK){
+				PF_PrintError("unfix");
+				exit(1);
+			}
+		}
+		if ((error=PF_CloseFile(fd))!= PFE_OK){
+			PF_PrintError("close file");
+			exit(1);
+		}
+		if ((error=PF_CloseFile(fdw))!= PFE_OK){
+			PF_PrintError("close file");
+			exit(1);
+		}
+	}
+	if ((error=PF_DestroyFile("temp"))!= PFE_OK){
+		PF_PrintError("destroy temp");
+		exit(1);
+	}
+	
 }
