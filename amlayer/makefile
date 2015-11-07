@@ -8,7 +8,7 @@ am.o : am.c am.h pf.h
 	cc -c am.c
 
 amfns.o : amfns.c am.h pf.h
-	cc -c amfns.c
+	gcc -c amfns.c -lm 
 
 amsearch.o : amsearch.c am.h pf.h
 	cc -c amsearch.c
