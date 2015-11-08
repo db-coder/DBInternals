@@ -31,4 +31,6 @@ amprint.o : amprint.c am.h pf.h
 main.o : main.c am.h pf.h 
 	cc -c main.c
 
+clean : 
+	rm *.o a.out file1
 

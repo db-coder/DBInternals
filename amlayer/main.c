@@ -34,7 +34,7 @@ int error;
 		PF_PrintError("open file1");
 		exit(1);
 	}
-	printf("opened %s\n",fname);
+	// printf("opened %s\n",fname);
 
 	for (j = 0; j < size_of_file; ++j)
 	{
@@ -43,8 +43,8 @@ int error;
 				PF_PrintError("first buffer\n");
 				exit(1);
 			}
-			*((int *)buf) = rand()%10000;
-			printf("allocated page %d\n",pagenum);
+			*((int *)buf) = rand();
+			// printf("allocated page %d\n",pagenum);
 		}
 
 		if ((error=PF_AllocPage(fd,&pagenum,&buf))==PFE_OK){
@@ -82,7 +82,7 @@ int *buf;
 int pagenum;
 int fd;
 
-	printf("opening %s\n",fname);
+	// printf("opening %s\n",fname);
 	if ((fd=PF_OpenFile(fname))<0){
 		PF_PrintError("open file");
 		exit(1);
@@ -101,10 +101,10 @@ int error;
 int *buf;
 int pagenum;
 
-	printf("reading file\n");
+	// printf("reading file\n");
 	pagenum = -1;
 	while ((error=PF_GetNextPage(fd,&pagenum,&buf))== PFE_OK){
-		printf("got page %d, %d\n",pagenum,*buf);
+		// printf("got page %d, %d\n",pagenum,*buf);
 		if ((error=PF_UnfixPage(fd,pagenum,FALSE))!= PFE_OK){
 			PF_PrintError("unfix");
 			exit(1);
@@ -114,20 +114,19 @@ int pagenum;
 		PF_PrintError("not eof\n");
 		exit(1);
 	}
-	printf("eof reached\n");
+	// printf("eof reached\n");
 
 }
 
 main()
 {
 	int error;
-	// struct timeval t1,t2;
 	// int i;
 	// RecIdType recid;	/* record id */
 	// char buf[NAMELENGTH]; /* buffer to store chars */
 
 	/* init */
-	printf("initializing\n");
+	// printf("initializing\n");
 	PF_Init();
 
 	/* create a few files */
@@ -136,7 +135,7 @@ main()
 		exit(1);
 	}
 
-	writefile(FILE1,10);
+	writefile(FILE1,5000);
 	readfile(FILE1);
 	
 	// int error;
@@ -151,26 +150,25 @@ main()
 	int numrec;		/* # of records retrieved*/
 	clock_t t;
 	t=clock();
-	double time_taken=((double)t)/CLOCKS_PER_SEC;
 
-	printf("Top Down B+ Tree\n");
+	// printf("Top Down B+ Tree\n");
 	if ((fd0=PF_OpenFile(FILE1))<0){
 		PF_PrintError("open file1\n");
 		exit(1);
 	}
-	printf("opened %s\n",FILE1);
+	// printf("opened %s\n",FILE1);
 
 	/* create index on the both field of the record*/
-	printf("creating indices\n");
+	// printf("creating indices\n");
 	AM_CreateIndex(RELNAME,RECVAL_INDEXNO,INT_TYPE,sizeof(int));
 
 	/* open the index */
-	printf("opening indices\n");
+	// printf("opening indices\n");
 	sprintf(fnamebuf,"%s.%d",RELNAME,RECVAL_INDEXNO);
 	id0 = PF_OpenFile(fnamebuf);
 
 	/* insert into index */
-	printf("inserting into index\n");
+	// printf("inserting into index\n");
 
 	recnum=0;
 	PF_GetFirstPage(fd0,&pagenum,&buf);
@@ -189,29 +187,29 @@ main()
 		PF_PrintError("not eof\n");
 		exit(1);
 	}
-	printf("eof reached\n");
+	// printf("eof reached\n");
 	t=clock()-t;
-	time_taken=((double)t)/CLOCKS_PER_SEC;
-	printf("Time taken (sec): %f\n",time_taken);
+	double time_taken=((double)t)/CLOCKS_PER_SEC;
+	// printf("Time taken (sec): %f\n",time_taken);
+	printf("%f,",time_taken);
 	int num_nodes = 0;
-
 	int nodes = AM_GetNumOfNodes(id0,&num_nodes);
-	printf("Number of Nodes: %d\n",nodes);
+	// printf("Number of Nodes: %d\n",nodes);
+	printf("%d,",nodes);
 
 	/* Let's see if the insert works */
-	printf("opening index scan on integer\n");
+	// printf("opening index scan on integer\n");
 	sd0 = AM_OpenIndexScan(id0,INT_TYPE,sizeof(int),EQ_OP,NULL);
-	printf("retrieving recid's from scan descriptor %d\n",sd0);
+	// printf("retrieving recid's from scan descriptor %d\n",sd0);
 	numrec = 0;
 	while((recnum=RecIdToInt(AM_FindNextEntry(sd0)))>= 0){
-		printf("%d\n",recnum);
+		// printf("%d\n",recnum);
 		numrec++;
 	}
-	printf("retrieved %d records\n",numrec);
-
+	// printf("retrieved %d records\n",numrec);
 
 	/* destroy everything */
-	printf("closing down\n");
+	// printf("closing down\n");
 	AM_CloseIndexScan(sd0);
 	PF_CloseFile(id0);
 	AM_DestroyIndex(RELNAME,RECVAL_INDEXNO);
@@ -220,29 +218,29 @@ main()
 		PF_PrintError("close fd1");
 		exit(1);
 	}
-	printf("closed %s\n",FILE1);
+	// printf("closed %s\n",FILE1);
 
-	printf("Top Down B+ Tree with sorted data\n");
+	// printf("Top Down B+ Tree with sorted data\n");
+	PF_MergeSort(FILE1);
+
 	t=clock();
-
-	//PF_MergeSort(FILE1);
 	if ((fd1=PF_OpenFile(FILE1))<0){
 		PF_PrintError("open file1\n");
 		exit(1);
 	}
-	printf("opened %s\n",FILE1);
+	// printf("opened %s\n",FILE1);
 
 	/* create index on the both field of the record*/
-	printf("creating indices\n");
+	// printf("creating indices\n");
 	AM_CreateIndex(RELNAME,RECVAL_INDEXNO,INT_TYPE,sizeof(int));
 
 	/* open the index */
-	printf("opening indices\n");
+	// printf("opening indices\n");
 	sprintf(fnamebuf,"%s.%d",RELNAME,RECVAL_INDEXNO);
 	id1 = PF_OpenFile(fnamebuf);
 
 	/* insert into index */
-	printf("inserting into index\n");
+	// printf("inserting into index\n");
 
 	recnum=0;
 	PF_GetFirstPage(fd1,&pagenum,&buf);
@@ -261,29 +259,29 @@ main()
 		PF_PrintError("not eof\n");
 		exit(1);
 	}
-	printf("eof reached\n");
+	// printf("eof reached\n");
 	t=clock()-t;
 	time_taken=((double)t)/CLOCKS_PER_SEC;
-	printf("Time taken (sec): %f\n",time_taken);
-
+	// printf("Time taken (sec): %f\n",time_taken);
+	printf("%f,",time_taken);
 	num_nodes = 0;
 	nodes = AM_GetNumOfNodes(id1,&num_nodes);
-	printf("Number of Nodes: %d\n",nodes);
-
+	// printf("Number of Nodes: %d\n",nodes);
+	printf("%d,",nodes);
 	/* Let's see if the insert works */
-	printf("opening index scan on integer\n");
+	// printf("opening index scan on integer\n");
 	sd1 = AM_OpenIndexScan(id1,INT_TYPE,sizeof(int),EQ_OP,NULL);
-	printf("retrieving recid's from scan descriptor %d\n",sd1);
+	// printf("retrieving recid's from scan descriptor %d\n",sd1);
 	numrec = 0;
 	while((recnum=RecIdToInt(AM_FindNextEntry(sd1)))>= 0){
-		printf("%d\n",recnum);
+		// printf("%d\n",recnum);
 		numrec++;
 	}
-	printf("retrieved %d records\n",numrec);
+	// printf("retrieved %d records\n",numrec);
 
 
 	/* destroy everything */
-	printf("closing down\n");
+	// printf("closing down\n");
 	AM_CloseIndexScan(sd1);
 	PF_CloseFile(id1);
 	AM_DestroyIndex(RELNAME,RECVAL_INDEXNO);
@@ -292,38 +290,36 @@ main()
 		PF_PrintError("close fd1");
 		exit(1);
 	}
-	printf("closed %s\n",FILE1);
+	// printf("closed %s\n",FILE1);
 
-	printf("Bottom UP\n");
+	// printf("Bottom UP with sorted data\n");
 	t=clock();
 	time_taken=((double)t)/CLOCKS_PER_SEC;
 
-	PF_MergeSort(FILE1);
-	int x=BootLoad(FILE1,RELNAME,RECVAL_INDEXNO,INT_TYPE,sizeof(int));
+	int x=BottomUpBulkLoad(FILE1,RELNAME,RECVAL_INDEXNO,INT_TYPE,sizeof(int));
 	t=clock()-t;
 	time_taken=((double)t)/CLOCKS_PER_SEC;
-	printf("Time taken (sec): %f\n",time_taken);
-
+	// printf("Time taken (sec): %f\n",time_taken);
+	printf("%f,",time_taken);
 	sprintf(fnamebuf,"%s.%d",RELNAME,RECVAL_INDEXNO);
-	printf("%s.%d",RELNAME,RECVAL_INDEXNO);
 	id2 = PF_OpenFile(fnamebuf);
-	printf(" %d %d \n",x,id2);
-	printf("opening index scan on integer\n");
-	sd2 = AM_OpenIndexScan(id2,INT_TYPE,sizeof(int),EQ_OP,NULL);
-	printf("retrieving recid's from scan descriptor %d\n",sd2);
-	numrec = 0;
-	while((recnum=RecIdToInt(AM_FindNextEntry(sd2)))>= 0){
-		printf("%d\n",recnum);
-		numrec++;
-	}
-	printf("retrieved %d records\n",numrec);
-
 	num_nodes = 0;
 	nodes = AM_GetNumOfNodes(id2,&num_nodes);
-	printf("Number of Nodes: %d\n",nodes);
+	// printf("Number of Nodes: %d\n",nodes);
+	// printf("Height: %d\n",x);
+	printf("%d\n",nodes);
+	// printf("opening index scan on integer\n");
+	sd2 = AM_OpenIndexScan(id2,INT_TYPE,sizeof(int),EQ_OP,NULL);
+	// printf("retrieving recid's from scan descriptor %d\n",sd2);
+	numrec = 0;
+	while((recnum=RecIdToInt(AM_FindNextEntry(sd2)))>= 0){
+		// printf("%d\n",recnum);
+		numrec++;
+	}
+	// printf("retrieved %d records\n",numrec);
 
 	/* destroy everything */
-	printf("closing down\n");
+	// printf("closing down\n");
 	AM_CloseIndexScan(sd2);
 	PF_CloseFile(id2);
 	AM_DestroyIndex(RELNAME,RECVAL_INDEXNO);

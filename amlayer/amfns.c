@@ -6,7 +6,7 @@
 int MAXKEYS;
 
 
-BootLoad(sourceFile,indexFile,indexNo,attrType,attrLength)
+BottomUpBulkLoad(sourceFile,indexFile,indexNo,attrType,attrLength)
 char *sourceFile;/* Name of source file which contains the sorted values */
 char *indexFile;/* Name of file which would contain the index */
 int indexNo;/*number of this index for file */
@@ -14,139 +14,140 @@ char attrType;/* 'c' for char ,'i' for int ,'f' for float */
 int attrLength; /* 4 for 'i' or 'f', 1-255 for 'c' */
 
 {
-//TODO Declare variables
-char indexfName[AM_MAX_FNAME_LENGTH]; /* String to store the indexed
-				files name with extension           */
-int inFileDesc; /* file Descriptor */
-int outFileDesc; /* file Descriptor */
-int errVal;
-int *inPageNum,InPageNum; inPageNum = &InPageNum;
-int *outPageNum,OutPageNum; outPageNum = &OutPageNum;
-int leafCount = 0;
-int height;
-int* pageNumbers;
-int firstPage;
+	//TODO Declare variables
+	char indexfName[AM_MAX_FNAME_LENGTH]; /* String to store the indexed
+					files name with extension           */
+	int inFileDesc; /* file Descriptor */
+	int outFileDesc; /* file Descriptor */
+	int errVal;
+	int *inPageNum,InPageNum; inPageNum = &InPageNum;
+	int *outPageNum,OutPageNum; outPageNum = &OutPageNum;
+	int leafCount = 0;
+	int height;
+	int* pageNumbers;
+	int firstPage;
 
-MAXKEYS = (PF_PAGE_SIZE - AM_sint - AM_si)/(AM_si + attrLength);
+	MAXKEYS = (PF_PAGE_SIZE - AM_sint - AM_si)/(AM_si + attrLength);
 
-/* Check the parameters */
-if ((attrType != 'c') && (attrType != 'f') && (attrType != 'i'))
-{
-AM_Errno = AME_INVALIDATTRTYPE;
-return(AME_INVALIDATTRTYPE);
-}
+	/* Check the parameters */
+	if ((attrType != 'c') && (attrType != 'f') && (attrType != 'i'))
+	{
+	AM_Errno = AME_INVALIDATTRTYPE;
+	return(AME_INVALIDATTRTYPE);
+	}
 
-if ((attrLength < 1) || (attrLength > 255))
-{
-AM_Errno = AME_INVALIDATTRLENGTH;
-return(AME_INVALIDATTRLENGTH);
-}
+	if ((attrLength < 1) || (attrLength > 255))
+	{
+	AM_Errno = AME_INVALIDATTRLENGTH;
+	return(AME_INVALIDATTRLENGTH);
+	}
 
-if (attrLength != 4)
-if (attrType !='c')
-{
-AM_Errno = AME_INVALIDATTRLENGTH;
-return(AME_INVALIDATTRLENGTH);
-}
+	if (attrLength != 4)
+	if (attrType !='c')
+	{
+	AM_Errno = AME_INVALIDATTRLENGTH;
+	return(AME_INVALIDATTRLENGTH);
+	}
 
 
 	char *pageBuf; /* buffer for holding a page */
 	int pageNum; /* page number of the root page(also the first page) */
 
-/* Get the filename with extension and create a paged file by that name*/
-sprintf(indexfName,"%s.%d",indexFile,indexNo);
-// printf("%s.%d\n\n",indexFile,indexNo);
-errVal = PF_CreateFile(indexfName);
-AM_Check;
+	/* Get the filename with extension and create a paged file by that name*/
+	sprintf(indexfName,"%s.%d",indexFile,indexNo);
+	// printf("%s.%d\n\n",indexFile,indexNo);
+	errVal = PF_CreateFile(indexfName);
+	AM_Check;
 
 
-/* open the input file */
-inFileDesc = PF_OpenFile(sourceFile);
-if (inFileDesc < 0)
-{
-AM_Errno = AME_PF;printf("%d",AM_Errno);
-return(AME_PF);
-}
+	/* open the input file */
+	inFileDesc = PF_OpenFile(sourceFile);
+	if (inFileDesc < 0)
+	{
+	AM_Errno = AME_PF;printf("%d",AM_Errno);
+	return(AME_PF);
+	}
 
 
-/* open the output file */
-outFileDesc = PF_OpenFile(indexfName);//printf("%d\n",inFileDesc);
-if (outFileDesc < 0)
-{
-AM_Errno = AME_PF;
-return(AME_PF);
-}
+	/* open the output file */
+	outFileDesc = PF_OpenFile(indexfName);//printf("%d\n",inFileDesc);
+	if (outFileDesc < 0)
+	{
+	AM_Errno = AME_PF;
+	return(AME_PF);
+	}
 
 
 
-// read elements from sourceFile and create leaf nodes
+	// read elements from sourceFile and create leaf nodes
 
-char* buf;
-errVal=PF_GetFirstPage(inFileDesc,inPageNum,&buf);
-AM_Check;
-errVal = PF_UnfixPage(inFileDesc,*inPageNum,TRUE);
-AM_Check;
+	char* buf;
+	errVal=PF_GetFirstPage(inFileDesc,inPageNum,&buf);
+	AM_Check;
+	errVal = PF_UnfixPage(inFileDesc,*inPageNum,TRUE);
+	AM_Check;
 
-//first leaf node
-int inFileEof = CreateLeaf(inFileDesc,outFileDesc,attrType,attrLength,inPageNum,outPageNum);
-AM_LeftPageNum = *outPageNum;
-int prevPageNum = *outPageNum;
-leafCount++;
-
-//rest of the leaf nodes
-while(!inFileEof){
-	inFileEof = CreateLeaf(inFileDesc,outFileDesc,attrType,attrLength,inPageNum,outPageNum);
-	changeNextPtrLeaf(outFileDesc,prevPageNum,*outPageNum);
-	// printf("on to the next leaf\n");
-	prevPageNum = *outPageNum;
+	//first leaf node
+	int inFileEof = CreateLeaf(inFileDesc,outFileDesc,attrType,attrLength,inPageNum,outPageNum);
+	AM_LeftPageNum = *outPageNum;
+	int prevPageNum = *outPageNum;
 	leafCount++;
-// printf("level count=%d\n",leafCount);
-}
 
-if(prevPageNum == AM_LeftPageNum){
-	AM_RootPageNum = outPageNum;
-	return outFileDesc;
-}
+	//rest of the leaf nodes
+	while(!inFileEof){
+		inFileEof = CreateLeaf(inFileDesc,outFileDesc,attrType,attrLength,inPageNum,outPageNum);
+		changeNextPtrLeaf(outFileDesc,prevPageNum,*outPageNum);
+		// printf("on to the next leaf\n");
+		prevPageNum = *outPageNum;
+		leafCount++;
+	// printf("level count=%d\n",leafCount);
+	}
 
-// printf("level count=%d\n",leafCount);
+	if(prevPageNum == AM_LeftPageNum){
+		AM_RootPageNum = outPageNum;
+		return 1;
+	}
 
-
-//TODO use leaf nodes to create internal nodes
-
-// int* firstNode;
-// int root_created = createInternalLayer(outFileDesc,attrType,attrLength,AM_LeftPageNum,firstNode,'l');
-
-
-// height = ceil(log10(leafCount)/log10(MAXKEYS));
-
-height = 1;
-while(leafCount>MAXKEYS){
-	leafCount /= MAXKEYS;
-}
-int root;
-
-int globalLeafPtr = AM_LeftPageNum;
-int globalDone = FALSE;
-
-createIntLayer(outFileDesc, attrType, attrLength, height, &globalLeafPtr, &globalDone, &root);
-
-AM_RootPageNum = root;
-
-//TODO
-// /* initialise the root page */
-// AM_LeftPageNum ;
-printf("%d\n",outFileDesc );
-printf("end BootLoad\n");
-errVal = PF_CloseFile(inFileDesc);
-AM_Check;
-
-printf("end BootLoad\n");
-errVal = PF_CloseFile(outFileDesc);
-AM_Check;
+	// printf("level count=%d\n",leafCount);
 
 
-printf("end BootLoad\n");
-return outFileDesc;
+	//TODO use leaf nodes to create internal nodes
+
+	// int* firstNode;
+	// int root_created = createInternalLayer(outFileDesc,attrType,attrLength,AM_LeftPageNum,firstNode,'l');
+
+
+	// height = ceil(log10(leafCount)/log10(MAXKEYS));
+
+	height = 1;
+	while(leafCount>MAXKEYS){
+		leafCount /= MAXKEYS;
+		height++;
+	}
+	int root;
+	// printf("%d\n", height);
+	int globalLeafPtr = AM_LeftPageNum;
+	int globalDone = FALSE;
+
+	createIntLayer(outFileDesc, attrType, attrLength, height, &globalLeafPtr, &globalDone, &root);
+
+	AM_RootPageNum = root;
+
+	//TODO
+	// /* initialise the root page */
+	// AM_LeftPageNum ;
+	// printf("%d\n",outFileDesc );
+	// printf("end BootLoad\n");
+	errVal = PF_CloseFile(inFileDesc);
+	AM_Check;
+
+	// printf("end BootLoad\n");
+	errVal = PF_CloseFile(outFileDesc);
+	AM_Check;
+
+
+	// printf("end BootLoad\n");
+	return height+1;
 
 }
 
@@ -218,23 +219,25 @@ int* outPageNum;
 		// printf("oye\n");
 		AM_Check;
 		if(x2==x1){
-				printf("inserting %d\n",x1);
+				// printf("inserting %d\n",x1);
 				inserted=AM_InsertintoLeaf(leafPageBuf,attrLength,(char*)&x1,x1,index,TRUE);
 				// printf(inserted)
 			}
 		else{
-			printf("inserting %d\n",x1);
+			// printf("inserting %d\n",x1);
 		//  printf("index %d\n",index);
 			inserted=AM_InsertintoLeaf(leafPageBuf,attrLength,(char*)&x1,x1,index,FALSE);
 			index++;
 		}
 		// printf("x1 = %d\n",x1);
-		errVal=PF_UnfixPage(inFileDesc,*inPageNum,TRUE);
-		AM_Check;
-			// printf("oyeLa\n");
-		errVal = PF_GetNextPage(inFileDesc,inPageNum,&inPageBuf);
-		x2=x1;
-		x1 = *inPageNum;
+		if(inserted){
+			errVal=PF_UnfixPage(inFileDesc,*inPageNum,TRUE);
+			AM_Check;
+				// printf("oyeLa\n");
+			errVal = PF_GetNextPage(inFileDesc,inPageNum,&inPageBuf);
+			x2=x1;
+			x1 = *inPageNum;
+		}
 
 	}
 	while(inserted && errVal != PFE_EOF );
@@ -318,17 +321,17 @@ char* passValue; //return value of first element
 
 	int x = *(int*)value;
 
-	printf("%d = leaf ptr 1\n",*globalLeafPagePtr);
+	// printf("%d = leaf ptr 1\n",*globalLeafPagePtr);
 	createIntLayer(outFileDesc, attrType, attrLength, height-1, globalLeafPagePtr, globalDonePtr, &pageNum, &value);
 
 
-	printf("%d = done pointer\n",(*globalDonePtr));
+	// printf("%d = done pointer\n",(*globalDonePtr));
 
 
-	printf("%d = leaf ptr 2\n",*globalLeafPagePtr);
+	// printf("%d = leaf ptr 2\n",*globalLeafPagePtr);
 	createIntLayer(outFileDesc, attrType, attrLength, height-1, globalLeafPagePtr, globalDonePtr, &pageNum1, &dummyValue);
 
-	printf("%d = done pointer\n",(*globalDonePtr));
+	// printf("%d = done pointer\n",(*globalDonePtr));
 
 
 	errVal=PF_AllocPage(outFileDesc,curr_node,&newPageBuf);
@@ -352,16 +355,16 @@ char* passValue; //return value of first element
 	createIntLayer(outFileDesc, attrType, attrLength, height-1, globalLeafPagePtr, globalDonePtr, &pageNum2, &dummyValue);
 
 	while( !(*globalDonePtr) && !new_page_eof){
-		printf("inside while numkeys = %d\n",newHeader->numKeys);
+		// printf("inside while numkeys = %d\n",newHeader->numKeys);
 		if ((newHeader->numKeys) < (newHeader->maxKeys)){
 		/* adds a key to an internal node */
 		AM_AddtoIntPage(newPageBuf,dummyValue,pageNum2,newHeader,offset);
-		printf("added new pageNo to machaxx int node=%d\n",pageNum2);
+		// printf("added new pageNo to machaxx int node=%d\n",pageNum2);
 		bcopy(newHeader,newPageBuf,AM_sint) ;
 		}
 		else{
 			new_page_eof = 1 ;
-			printf("new page ends%d\n",newHeader->maxKeys);
+			// printf("new page ends%d\n",newHeader->maxKeys);
 		}
 
 		// printf("(int)pageNum2!=(int)-1%d\n",(int)pageNum2!=(int)-1);
@@ -377,43 +380,6 @@ char* passValue; //return value of first element
 	errVal=PF_UnfixPage(outFileDesc,*curr_node,TRUE);
 	AM_Check;
 
-}
-
-createInternalLayer(outFileDesc,attrType,attrLength,inFirstNode,outFirstNode,daughterLayerType)
-int* outFileDesc;
-char attrType;/* 'c' for char ,'i' for int ,'f' for float */
-int attrLength; /* 4 for 'i' or 'f', 1-255 for 'c' */
-int inFirstNode;//First node of the daughter layer
-int* outFirstNode;//First node of thecurrent node
-char daughterLayerType;//l for leaf, i for internal
-{
-	// printf("creating internal layer\n");
-
-	int curr_daughter_node = inFirstNode;
-	int curr_node;
-
-	// printf("creating daughter layer1 %d\n",curr_daughter_node);
-
-	//first internal node
-	int end_of_daughters = CreateInt(outFileDesc,attrType,attrLength,&curr_daughter_node,&curr_node,daughterLayerType);
-	outFirstNode = curr_node;
-	int prevNode = curr_node;
-
-	// printf("creating internal layer1 %d\n",inFirstNode);
-	//rest of the internal nodes
-	while(!end_of_daughters){
-		end_of_daughters = CreateInt(outFileDesc,attrType,attrLength,&curr_daughter_node,&curr_node,daughterLayerType);
-		// changeNextPtrInt(outFileDesc,prevNode,curr_node);
-		// printf("on to the next int node\n");
-		prevNode = curr_node;
-	}
-
-	// printf("creating internal layer2\n");
-	if(prevNode == *outFirstNode){
-		return AM_FOUND;
-	}
-	else
-		return AM_NOT_FOUND;
 }
 
 CreateInt(outFileDesc,attrType,attrLength,curr_daughter_node,curr_node,passValue)
@@ -460,7 +426,7 @@ char* passValue;
 	maxKeys = leafHeader->maxKeys;
 	bcopy (buf1 + AM_sl,(char*)&x,attrLength);
 
-	printf("inside create int value   =%d\n",x);
+	// printf("inside create int value   =%d\n",x);
 
 	errVal=PF_UnfixPage(outFileDesc,pageNum,FALSE);
 	AM_Check;
@@ -474,7 +440,7 @@ char* passValue;
 	pageNum2 = leafHeader->nextLeafPage;
 	bcopy(buf2 + AM_sl,passValue,attrLength);
 
-	printf("added new pageNo to int node=%d\n",pageNum1);
+	// printf("added new pageNo to int node=%d\n",pageNum1);
 
 	errVal=PF_UnfixPage(outFileDesc,pageNum1,FALSE);
 	AM_Check;
@@ -497,17 +463,17 @@ char* passValue;
 	int new_page_eof = 0;
 
 	while(pageNum2!=-1 && !new_page_eof){
-		printf("offset=%d",offset);
+		// printf("offset=%d",offset);
 		if ((newHeader->numKeys) < (newHeader->maxKeys)){
 		/* adds a key to an internal node */
 		AM_AddtoIntPage(newPageBuf,value,pageNum2,newHeader,offset);
-		printf("added new pageNo to int node=%d\n",pageNum2);
+		// printf("added new pageNo to int node=%d\n",pageNum2);
 		bcopy(newHeader,newPageBuf,AM_sint) ;
 		}
 		else{
 			new_page_eof = 1 ;
 			*curr_daughter_node = pageNum2;
-			printf("new page ends%d\n",newHeader->maxKeys);
+			// printf("new page ends%d\n",newHeader->maxKeys);
 		}
 
 		// printf("(int)pageNum2!=(int)-1%d\n",(int)pageNum2!=(int)-1);
